@@ -1,12 +1,46 @@
 const express = require("express");
 const mercadopago = require("mercadopago");
 const cors = require("cors");
+const sgMail = require("@sendgrid/mail");
 
 const app = express();
 app.use(cors({ origin: process.env.FRONTEND_URL || "*" }));
 app.use(express.json());
 
 mercadopago.configure({ access_token: process.env.MP_ACCESS_TOKEN });
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+// Enviar código de verificación
+app.post("/enviar-codigo", async (req, res) => {
+  const { email, nombre, codigo } = req.body;
+  try {
+    await sgMail.send({
+      to: email,
+      from: "noreply@lapizarra.com.mx",
+      subject: "Tu código de verificación — La Pizarra",
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px">
+          <div style="background:linear-gradient(135deg,#14532d,#16a34a);borderRadius:16px;padding:24px;text-align:center;margin-bottom:24px">
+            <h1 style="color:#fff;font-size:28px;margin:0">🪧 La Pizarra</h1>
+            <p style="color:#86efac;margin:4px 0 0;font-size:13px">CENTRAL DE ABASTO · CDMX</p>
+          </div>
+          <p style="font-size:16px;color:#111">Hola <b>${nombre}</b>,</p>
+          <p style="font-size:15px;color:#374151">Tu código de verificación es:</p>
+          <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:20px;text-align:center;margin:20px 0">
+            <span style="font-size:36px;font-weight:900;color:#14532d;letter-spacing:8px">${codigo}</span>
+          </div>
+          <p style="font-size:13px;color:#9ca3af">Este código expira en 10 minutos. Si no solicitaste esto, ignora este mensaje.</p>
+          <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0"/>
+          <p style="font-size:12px;color:#d1d5db;text-align:center">La Pizarra · lapizarra.com.mx</p>
+        </div>
+      `,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Crear preferencia de pago
 app.post("/crear-pago", async (req, res) => {
