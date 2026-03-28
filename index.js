@@ -5,7 +5,7 @@ const sgMail = require("@sendgrid/mail");
 const twilio = require("twilio");
 
 const app = express();
-app.use(cors({ origin: process.env.FRONTEND_URL || "*" }));
+app.use(cors({ origin: "*" }));
 app.use(express.json());
 
 mercadopago.configure({ access_token: process.env.MP_ACCESS_TOKEN });
