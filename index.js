@@ -37,23 +37,23 @@ app.post("/enviar-codigo", async (req, res) => {
     });
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    console.error("Error SendGrid:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Enviar código por WhatsApp
-app.post("/enviar-codigo-whatsapp", async (req, res) => {
+// Enviar código por SMS
+app.post("/enviar-codigo-sms", async (req, res) => {
   const { tel, nombre, codigo } = req.body;
   try {
     await twilioClient.messages.create({
-      from: process.env.TWILIO_WHATSAPP_FROM,
-      to: `whatsapp:+52${tel}`,
-      body: `🪧 *La Pizarra*\n\nHola ${nombre}, tu código de verificación es:\n\n*${codigo}*\n\nEste código expira en 10 minutos.`,
+      from: process.env.TWILIO_SMS_FROM,
+      to: `+52${tel}`,
+      body: `La Pizarra: Hola ${nombre}, tu codigo de verificacion es: ${codigo}. Expira en 10 minutos.`,
     });
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    console.error("Error Twilio SMS:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -64,7 +64,7 @@ app.post("/crear-pago", async (req, res) => {
   try {
     const preferencia = {
       items: [{
-        title: `La Pizarra - Membresía ${tipo === "vendedor" ? "Vendedor" : "Comprador"}`,
+        title: `La Pizarra - Membresia ${tipo === "vendedor" ? "Vendedor" : "Comprador"}`,
         quantity: 1,
         unit_price: 200,
         currency_id: "MXN",
