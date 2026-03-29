@@ -1,14 +1,13 @@
 const express = require("express");
-const mercadopago = require("mercadopago");
 const cors = require("cors");
 const sgMail = require("@sendgrid/mail");
 const twilio = require("twilio");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-mercadopago.configure({ access_token: process.env.MP_ACCESS_TOKEN });
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
@@ -49,54 +48,58 @@ app.post("/enviar-codigo-sms", async (req, res) => {
     await twilioClient.messages.create({
       from: process.env.TWILIO_SMS_FROM,
       to: `+52${tel}`,
-      body: `La Pizarra: Hola ${nombre}, tu codigo de verificacion es: ${codigo}. Expira en 10 minutos.`,
+      body: `La Pizarra: Hola ${nombre}, tu codigo es: ${codigo}. Expira en 10 minutos.`,
     });
     res.json({ ok: true });
   } catch (err) {
-    console.error("Error Twilio SMS:", err);
+    console.error("Error Twilio:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Crear preferencia de pago
+// Crear sesión de pago con Stripe
 app.post("/crear-pago", async (req, res) => {
   const { nombre, email, tipo } = req.body;
   try {
-    const preferencia = {
-      items: [{
-        title: `La Pizarra - Membresia ${tipo === "vendedor" ? "Vendedor" : "Comprador"}`,
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [{
+        price_data: {
+          currency: "mxn",
+          product_data: {
+            name: `La Pizarra — Membresía ${tipo === "vendedor" ? "Vendedor" : "Comprador"}`,
+            description: "30 días de acceso completo",
+          },
+          unit_amount: 20000, // $200 MXN en centavos
+        },
         quantity: 1,
-        unit_price: 200,
-        currency_id: "MXN",
       }],
-      payer: { name: nombre, email: email },
-      back_urls: {
-        success: `${process.env.FRONTEND_URL}?pago=exitoso`,
-        failure: `${process.env.FRONTEND_URL}?pago=fallido`,
-        pending: `${process.env.FRONTEND_URL}?pago=pendiente`,
-      },
-      auto_return: "approved",
-      notification_url: `https://nurturing-joy-production-cae2.up.railway.app/notificacion`,
-    };
-    const respuesta = await mercadopago.preferences.create(preferencia);
-    res.json({ url: respuesta.body.init_point });
+      mode: "payment",
+      customer_email: email,
+      success_url: `${process.env.FRONTEND_URL}?pago=exitoso`,
+      cancel_url: `${process.env.FRONTEND_URL}?pago=cancelado`,
+      metadata: { nombre, email, tipo },
+    });
+    res.json({ url: session.url });
   } catch (err) {
+    console.error("Error Stripe:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Notificación MercadoPago
-app.post("/notificacion", async (req, res) => {
-  const { type, data } = req.body;
-  if (type === "payment") {
-    try {
-      const pago = await mercadopago.payment.findById(data.id);
-      console.log("Pago recibido:", pago.body.status, pago.body.payer.email);
-    } catch (err) {
-      console.error(err);
+// Webhook de Stripe
+app.post("/webhook-stripe", express.raw({type: "application/json"}), (req, res) => {
+  const sig = req.headers["stripe-signature"];
+  try {
+    const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET || "");
+    if(event.type === "checkout.session.completed"){
+      const session = event.data.object;
+      console.log("Pago exitoso:", session.customer_email, session.metadata);
     }
+    res.json({ received: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
-  res.sendStatus(200);
 });
 
 app.get("/", (req, res) => res.json({ ok: true, app: "La Pizarra Server" }));
