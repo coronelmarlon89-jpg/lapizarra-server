@@ -81,6 +81,19 @@ app.post("/contactos", async (req, res) => {
   res.json(data || null);
 });
 
+// ── CALIFICACIONES ───────────────────────────────────────────────
+app.get("/calificaciones/:vendedor_id", async (req, res) => {
+  const { data } = await supabase.from("calificaciones").select("*").eq("vendedor_id", req.params.vendedor_id);
+  res.json(data || []);
+});
+app.post("/calificaciones/:vendedor_id", async (req, res) => {
+  const { data, error } = await supabase.from("calificaciones").upsert({
+    ...req.body,
+    vendedor_id: req.params.vendedor_id,
+  }, { onConflict: "vendedor_id,comprador_tel" }).select().single();
+  res.json(data || { error });
+});
+
 // ── CORREO ───────────────────────────────────────────────────────
 app.post("/enviar-codigo", async (req, res) => {
   const { email, nombre, codigo } = req.body;
