@@ -7,7 +7,7 @@ const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 app.use(cors({ origin: "*" }));
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
@@ -79,6 +79,20 @@ app.get("/contactos/:vendedor_id", async (req, res) => {
 app.post("/contactos", async (req, res) => {
   const { data } = await supabase.from("contactos").insert(req.body).select().single();
   res.json(data || null);
+});
+
+// ── FOTOS ────────────────────────────────────────────────────────
+app.post("/subir-foto", async (req, res) => {
+  const { base64 } = req.body;
+  if (!base64) return res.status(400).json({ error: "Sin imagen" });
+  const buffer = Buffer.from(base64.replace(/^data:image\/\w+;base64,/, ""), "base64");
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+  const { error } = await supabase.storage.from("fotos-productos").upload(path, buffer, {
+    contentType: "image/jpeg", upsert: false,
+  });
+  if (error) return res.status(500).json({ error: error.message });
+  const { data: { publicUrl } } = supabase.storage.from("fotos-productos").getPublicUrl(path);
+  res.json({ url: publicUrl });
 });
 
 // ── CALIFICACIONES ───────────────────────────────────────────────
