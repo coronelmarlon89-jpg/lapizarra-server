@@ -47,8 +47,8 @@ app.get("/compradores/:tel", async (req, res) => {
   res.json(data || null);
 });
 app.post("/compradores", async (req, res) => {
-  console.log("POST /compradores →", req.body?.tel, req.body?.nombre);
   const { data, error } = await supabase.from("compradores").upsert(req.body).select().single();
+  if (error) console.error("ERROR upsert comprador:", JSON.stringify(error));
   if (data) notificarRegistro({ tipo: "comprador", nombre: data.nombre, tel: data.tel, email: data.email });
   res.json(data || { error });
 });
@@ -71,8 +71,8 @@ app.get("/vendedores/:id", async (req, res) => {
   res.json(data || null);
 });
 app.post("/vendedores", async (req, res) => {
-  console.log("POST /vendedores →", req.body?.tel, req.body?.nombre);
   const { data, error } = await supabase.from("vendedores").upsert(req.body).select().single();
+  if (error) console.error("ERROR upsert vendedor:", JSON.stringify(error));
   if (data) notificarRegistro({ tipo: "vendedor", nombre: data.nombre, tel: data.tel, email: data.email });
   res.json(data || { error });
 });
