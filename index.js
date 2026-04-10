@@ -13,6 +13,34 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET);
 
+// ── NOTIFICACIÓN AL ADMIN ─────────────────────────────────────────
+async function notificarRegistro({ tipo, nombre, tel, email }) {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!adminEmail) { console.log("⚠️  ADMIN_EMAIL no configurado, notificación omitida"); return; }
+  try {
+    await sgMail.send({
+      to: adminEmail,
+      from: "noreply@lapizarra.com.mx",
+      subject: `🪧 Nuevo ${tipo} registrado — La Pizarra`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px">
+        <div style="background:linear-gradient(135deg,#14532d,#16a34a);border-radius:16px;padding:24px;text-align:center;margin-bottom:24px">
+          <h1 style="color:#fff;font-size:24px;margin:0">🪧 La Pizarra — Nuevo registro</h1>
+        </div>
+        <p style="font-size:16px;color:#111">Se registró un nuevo <b>${tipo}</b>:</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0">
+          <tr><td style="padding:8px;color:#6b7280;width:120px">Nombre</td><td style="padding:8px;font-weight:bold">${nombre || "—"}</td></tr>
+          <tr style="background:#f9fafb"><td style="padding:8px;color:#6b7280">Teléfono</td><td style="padding:8px;font-weight:bold">${tel || "—"}</td></tr>
+          ${email ? `<tr><td style="padding:8px;color:#6b7280">Email</td><td style="padding:8px">${email}</td></tr>` : ""}
+          <tr style="background:#f9fafb"><td style="padding:8px;color:#6b7280">Fecha</td><td style="padding:8px">${new Date().toLocaleString("es-MX",{timeZone:"America/Mexico_City"})}</td></tr>
+        </table>
+      </div>`,
+    });
+    console.log(`✅ Notificación enviada a ${adminEmail} — nuevo ${tipo}: ${nombre} (${tel})`);
+  } catch (err) {
+    console.error("❌ Error enviando notificación:", err.message);
+  }
+}
+
 // ── COMPRADORES ──────────────────────────────────────────────────
 app.get("/compradores/:tel", async (req, res) => {
   const { data } = await supabase.from("compradores").select("*").eq("tel", req.params.tel).single();
@@ -20,6 +48,7 @@ app.get("/compradores/:tel", async (req, res) => {
 });
 app.post("/compradores", async (req, res) => {
   const { data, error } = await supabase.from("compradores").upsert(req.body).select().single();
+  if (data) notificarRegistro({ tipo: "comprador", nombre: data.nombre, tel: data.tel, email: data.email });
   res.json(data || { error });
 });
 app.patch("/compradores/:tel", async (req, res) => {
@@ -42,6 +71,7 @@ app.get("/vendedores/:id", async (req, res) => {
 });
 app.post("/vendedores", async (req, res) => {
   const { data, error } = await supabase.from("vendedores").upsert(req.body).select().single();
+  if (data) notificarRegistro({ tipo: "vendedor", nombre: data.nombre, tel: data.tel, email: data.email });
   res.json(data || { error });
 });
 app.patch("/vendedores/:id", async (req, res) => {
