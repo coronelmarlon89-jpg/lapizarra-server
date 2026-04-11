@@ -20,7 +20,7 @@ async function notificarRegistro({ tipo, nombre, tel, email }) {
   try {
     await sgMail.send({
       to: adminEmail,
-      from: "noreply@lapizarra.com.mx",
+      from: "delverdecoronel@gmail.com",
       subject: `🪧 Nuevo ${tipo} registrado — La Pizarra`,
       html: `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px">
         <div style="background:linear-gradient(135deg,#14532d,#16a34a);border-radius:16px;padding:24px;text-align:center;margin-bottom:24px">
